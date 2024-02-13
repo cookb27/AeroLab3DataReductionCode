@@ -63,6 +63,8 @@ for i = 1:size(Names,2)
         AeroTare = AeroTare20;
     end
 
+    % CHECK SIGNS BEFORE MOVING FORWARDS
+
     drag = drag - AeroTare;
 
     DataArray{4,i+1} = drag;
