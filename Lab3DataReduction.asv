@@ -106,7 +106,6 @@ for i = 1:size(Names,2)
 end
 
 clear AeroTare d_unc_1 d_unc_2 drag i j StingRunIndices StingTareIndices
-clear term1 term2 term3 length mu rho q area area_unc
 
 % Data are stored per row as:
 % 1  Name
@@ -137,14 +136,12 @@ ax2 = axes;
 
 load CdvsReData
 
-% NOTE: Cite this code as being from canvas
+% NOTE: Cite this code as source
 plot(CdvsReSphere(:,1),CdvsReSphere(:,2),'-r',...
     CdvsReDisk(:,1),CdvsReDisk(:,2),'-b',...
     CdvsReHull(:,1),CdvsReHull(:,2),'-k',...
     CdvsReEllipsoid(:,1),CdvsReEllipsoid(:,2),'-m',...
     'LineWidth',2)
-hold on
-scatter(ax2,cell2mat(DataArray(10,2:15)),cell2mat(DataArray(8,2:15)));
 grid
 xlim([0.1 1e7])
 ylim([0.01 100])
@@ -152,9 +149,15 @@ set(gca,'XScale','log','YScale','log')
 xlabel('$Re$','Interpreter','latex','FontSize',16)
 ylabel('$C_D$','Interpreter','latex','FontSize',16)
 legend('Smooth sphere','Disk','Airship hull','2:1 Ellipsoid',...
-    'Found Drag Coefficients',...
     'Location','NorthOutside','Numcolumns',2,'FontSize',16,...
     'Interpreter','latex')
+% 
+% hold on
+% scatter(ax2,cell2mat(DataArray(10,2:15)),cell2mat(DataArray(8,2:15)));
+% ax2.XScale = 'Log';
+% grid on
+% ylabel("C_D")
+% xlabel("Reynold's Number")
 
 %% Functions
 % This function will find the find and remove the tare data
