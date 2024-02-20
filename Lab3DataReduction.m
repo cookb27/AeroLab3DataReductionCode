@@ -81,7 +81,7 @@ for i = 1:size(Names,2)
         AeroTare = AeroTare20;
         q = 0.5*rho*20^2; % 20 m/s dynamic pressure (FIX ME!)
         DataArray{6,i+1} = q;
-        DataArray{10,i+1} = rho*10*length/mu;
+        DataArray{10,i+1} = rho*20*length/mu;
     end
 
     DataArray{7,i+1} = area;
@@ -122,6 +122,8 @@ clear term1 term2 term3 length mu rho q area area_unc
 
 %% Plotting 
 % Creating name vector for bar graph
+Names = replace(Names,'_',' ');
+
 X = categorical(Names); % Converts from cell to categorical
 X = reordercats(X,Names); % Preserves order of cells (doesn't alphabetize)
 
@@ -155,6 +157,30 @@ legend('Smooth sphere','Disk','Airship hull','2:1 Ellipsoid',...
     'Found Drag Coefficients',...
     'Location','NorthOutside','Numcolumns',2,'FontSize',16,...
     'Interpreter','latex')
+axis([1e4 1e6 1e-2 2e0])
+T = text(cell2mat(DataArray(10,2:15)),cell2mat(DataArray(8,2:15)),Names);
+
+% Temp figure, TO DELETE LATER
+% Shows drag per unit area, should be able to compare numbers before areas
+figure
+scatter(X,cell2mat(DataArray(8,2:15)).*cell2mat(DataArray(7,2:15)));
+
+for i = 1:size(T,1)
+    if (contains(Names(i),'10'))
+        LR = 'right';
+        VERT = 'bottom';
+    elseif (contains(Names(i),'20'))
+        LR = 'left';
+        VERT = 'middle';
+    end
+
+    if (contains(Names(i),'hollow') || (contains(Names(i),'golf')))
+        LR = 'right';
+    end
+
+    T(i,1).HorizontalAlignment = LR;
+    T(i,1).VerticalAlignment   = VERT;
+end
 
 %% Functions
 % This function will find the find and remove the tare data
