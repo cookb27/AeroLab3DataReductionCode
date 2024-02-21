@@ -4,7 +4,7 @@ clear; close all; clc;
 dir_address    = pwd; % Finds Current Folder of Repo
 original_files = dir([dir_address,'/*.mat']); % Searches for all files
 
-DataArray = cell(6,size(original_files,1)-1); % Creates Storage Array
+DataArray = cell(11,size(original_files,1)-1); % Creates Storage Array
 
 % Extract Calibration Coefficients
 data = load(fullfile(dir_address,original_files(2).name));
@@ -70,18 +70,18 @@ Names = DataArray(1,2:size(DataArray,2));
 for i = 1:size(Names,2)
     [drag,d_unc_1,d_unc_2] = findDrag(Names{i},DataArray,TareArray);
     
-    [length,area,area_unc] = AreaFinder(Names{i});
+    [length,diam,area,area_unc] = AreaFinder(Names{i});
 
     if (~isempty(strfind(Names{i},'10'))) % 10m/s Run
         AeroTare = AeroTare10;
         q = 0.5*rho*10^2; % 10 m/s dynamic pressure (FIX ME!)
         DataArray{6,i+1} = q;
-        DataArray{10,i+1} = rho*10*length/mu;
+        DataArray{10,i+1} = rho*10*diam/mu;
     elseif (~isempty(strfind(Names{i},'20'))) % 20m/s Run
         AeroTare = AeroTare20;
         q = 0.5*rho*20^2; % 20 m/s dynamic pressure (FIX ME!)
         DataArray{6,i+1} = q;
-        DataArray{10,i+1} = rho*20*length/mu;
+        DataArray{10,i+1} = rho*20*diam/mu;
     end
 
     DataArray{7,i+1} = area;
@@ -103,6 +103,8 @@ for i = 1:size(Names,2)
     term3 = drag*area_unc/(q*area^2);  % TEMP CODE! 5% uncertainty in q
 
     DataArray{9,i+1} = sqrt(term1^2 + term2^2 + term3^2);
+
+    DataArray{11,i+1} = diam/length; % Aspect Ratio
 end
 
 clear AeroTare d_unc_1 d_unc_2 drag i j StingRunIndices StingTareIndices
@@ -119,6 +121,7 @@ clear term1 term2 term3 length mu rho q area area_unc
 % 8  CD
 % 9  CD_unc
 % 10 Re
+% 11 t/c
 
 %% Plotting 
 % Creating name vector for bar graph
@@ -133,7 +136,9 @@ bar(X,cell2mat(DataArray(8,2:15)));
 er = errorbar(X,cell2mat(DataArray(8,2:15)),cell2mat(DataArray(9,2:15)));
 er.LineStyle = 'none';
 ylabel("C_D")
+grid on
 
+%% 
 f2  = figure;
 ax2 = axes;
 
@@ -147,7 +152,7 @@ plot(CdvsReSphere(:,1),CdvsReSphere(:,2),'-r',...
     'LineWidth',2)
 hold on
 scatter(ax2,cell2mat(DataArray(10,2:15)),cell2mat(DataArray(8,2:15)));
-grid
+grid on
 xlim([0.1 1e7])
 ylim([0.01 100])
 set(gca,'XScale','log','YScale','log')
@@ -160,11 +165,6 @@ legend('Smooth sphere','Disk','Airship hull','2:1 Ellipsoid',...
 axis([1e4 1e6 1e-2 2e0])
 T = text(cell2mat(DataArray(10,2:15)),cell2mat(DataArray(8,2:15)),Names);
 
-% Temp figure, TO DELETE LATER
-% Shows drag per unit area, should be able to compare numbers before areas
-figure
-scatter(X,cell2mat(DataArray(8,2:15)).*cell2mat(DataArray(7,2:15)));
-
 for i = 1:size(T,1)
     if (contains(Names(i),'10'))
         LR = 'right';
@@ -174,12 +174,39 @@ for i = 1:size(T,1)
         VERT = 'middle';
     end
 
-    if (contains(Names(i),'hollow') || (contains(Names(i),'golf')))
+    if (contains(Names(i),'golf') || contains(Names(i),'convex'))
         LR = 'right';
+    elseif (contains(Names(i),'hollow') || contains(Names(i),'convex'))
+        VERT = 'bottom';
+    elseif (contains(Names(i),'solid'))
+        VERT = 'top';
     end
 
     T(i,1).HorizontalAlignment = LR;
     T(i,1).VerticalAlignment   = VERT;
+end
+
+%% Drag Compared By Aspect Ratio
+figure
+hold on
+scatter(cell2mat(DataArray(11,2:15)),cell2mat(DataArray(8,2:15)));
+xlabel("Aspect Ratio")
+ylabel("C_D")
+grid on
+title("Found Drag Coefficients Over Aspect Ratios")
+T2 = text(cell2mat(DataArray(11,2:15)),cell2mat(DataArray(8,2:15)),Names);
+
+for i = 1:size(T,1)
+    if (DataArray{11,i+1}==1) % || contains(Names(i),"ball") || contains(Names(i),"sphere")  
+        LR   = 'right';
+        VERT = 'bottom';
+    else
+        LR   = 'left';
+        VERT = 'bottom';
+    end
+
+    T2(i,1).HorizontalAlignment = LR;
+    T2(i,1).VerticalAlignment   = VERT;
 end
 
 %% Functions
@@ -199,8 +226,19 @@ function [Drag,Drag_unc1,Drag_unc2] = findDrag(name,Data,Tare)
 end
 
 % This function finds the area based on name alone
-function [length, area, area_unc] = AreaFinder(name)
+function [length, diam, area, area_unc] = AreaFinder(name)
     % Hard coding in lengths (inches, to be converted)
+    Diams   = [2.95  % Diam   Disk
+               3.03  % Diam   Concave
+               3.08  % Diam   Convex
+               2.99  % Diam   Smooth
+               3.03  % Diam   Rough
+               1.58  % Diam   Ping-Pong
+               1.67  % Diam   Golfball
+               3.41  % Diam Solid Nerf
+               3.46  % Diam Hollow Nerf
+               1.38]; % Diam Putty
+    
     Lengths = [2.95  % Diam   Disk
                3.03  % Diam   Concave
                3.08  % Diam   Convex
@@ -210,50 +248,61 @@ function [length, area, area_unc] = AreaFinder(name)
                1.67  % Diam   Golfball
                11.1  % Length Solid Nerf
                6.38  % Length Hollow Nerf
-               3.9]; % Length Putty
+               4.25]; % Length Putty
 
-    Lengths = Lengths/39.37;
-    area_unc = (pi/2).*Lengths.*0.001;
+    Lengths  = Lengths/39.37;
+    Diams    = Diams/39.37;
+    area_unc = (pi/2).*Diams.*0.001;
 
     if (contains(name,'disk'))
+        diam     = Diams(1);
         length   = Lengths(1);
-        area     = pi/4 * Lengths(1)^2;
+        area     = pi/4 * diam^2;
         area_unc = area_unc(1);
     elseif (contains(name,'concave'))
+        diam     = Diams(2);
         length   = Lengths(2);
-        area     = pi/4 * Lengths(2)^2;
+        area     = pi/4 * diam^2;
         area_unc = area_unc(2);
     elseif (contains(name,'convex'))
+        diam     = Diams(3);
         length   = Lengths(3);
-        area     = pi/4 * Lengths(3)^2;
+        area     = pi/4 * diam^2;
         area_unc = area_unc(3);
     elseif (contains(name,'smooth'))
+        diam     = Diams(4);
         length   = Lengths(4);
-        area     = pi/4 * Lengths(4)^2;
+        area     = pi/4 * diam^2;
         area_unc = area_unc(4);
     elseif (contains(name,'rough'))
+        diam     = Diams(5);
         length   = Lengths(5);
-        area     = pi/4 * Lengths(5)^2;
+        area     = pi/4 * diam^2;
         area_unc = area_unc(5);
     elseif (contains(name,'ping'))
+        diam     = Diams(6);
         length   = Lengths(6);
-        area     = pi/4 * Lengths(6)^2;
+        area     = pi/4 * diam^2;
         area_unc = area_unc(6);
     elseif (contains(name,'golf'))
+        diam     = Diams(7);
         length   = Lengths(7);
-        area     = pi/4 * Lengths(7)^2;
+        area     = pi/4 * diam^2;
         area_unc = area_unc(7);
     elseif (contains(name,'solid'))
+        diam     = Diams(8);
         length   = Lengths(8);
-        area     = pi/4 * Lengths(8)^2;  % FIX ME - Area is INCORRECT
+        area     = pi/4 * diam^2;  % FIX ME - Area is INCORRECT
         area_unc = area_unc(8);      % FIX ME - Area unc is INCORRECT
     elseif (contains(name,'hollow'))
+        diam     = Diams(9);
         length   = Lengths(9);
-        area     = pi/4 * Lengths(9)^2;  % FIX ME - Area is INCORRECT
+        area     = pi/4 * diam^2;  % FIX ME - Area is INCORRECT
         area_unc = area_unc(9);      % FIX ME - Area unc is INCORRECT
     elseif (contains(name,'putty'))
+        diam     = Diams(10);
         length   = Lengths(10);
-        area     = pi/4 * Lengths(10)^2; % FIX ME - Area is INCORRECT
+        area     = pi/4 * diam^2; % FIX ME - Area is INCORRECT
         area_unc = area_unc(10);     % FIX ME - Area unc is INCORRECT
     else
         fprintf("\nArea not found\n");
