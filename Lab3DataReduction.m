@@ -8,7 +8,7 @@ DataArray = cell(11,size(original_files,1)-1); % Creates Storage Array
 
 % Extract Calibration Coefficients
 data = load(fullfile(dir_address,original_files(2).name));
-DataArray{1,1} = original_files(1).name;
+DataArray{1,1} = original_files(2).name;
 DataArray{2,1} = data.pDrag(1);
 DataArray{3,1} = data.pDrag(2);
 
@@ -98,9 +98,9 @@ for i = 1:size(Names,2)
 
     DataArray{8,i+1} = drag/(q*area);
 
-    term1 = DataArray{5,i+1}/(q*area); % TEMP CODE!
-    term2 = drag*0.05/(q*area);        % TEMP CODE! 5% uncertainty in q
-    term3 = drag*area_unc/(q*area^2);  % TEMP CODE! 5% uncertainty in q
+    term1 = DataArray{5,i+1}/(q*area); % TEMP CODE! Drag Uncertainty
+    term2 = (drag*0.0005*1000)/(q^2*area); % TEMP CODE! 5% uncertainty in q
+    term3 = drag*area_unc/(q*area^2);  % TEMP CODE!
 
     DataArray{9,i+1} = sqrt(term1^2 + term2^2 + term3^2);
 
@@ -252,63 +252,42 @@ function [length, diam, area, area_unc] = AreaFinder(name)
 
     Lengths  = Lengths/39.37;
     Diams    = Diams/39.37;
-    area_unc = (pi/2).*Diams.*0.001;
+    area_unc = (pi/2).*Diams.*0.001/39.37;
 
     if (contains(name,'disk'))
-        diam     = Diams(1);
-        length   = Lengths(1);
-        area     = pi/4 * diam^2;
-        area_unc = area_unc(1);
+        index = 1;
     elseif (contains(name,'concave'))
-        diam     = Diams(2);
-        length   = Lengths(2);
-        area     = pi/4 * diam^2;
-        area_unc = area_unc(2);
+        index = 2;
     elseif (contains(name,'convex'))
-        diam     = Diams(3);
-        length   = Lengths(3);
-        area     = pi/4 * diam^2;
-        area_unc = area_unc(3);
+        index = 3;
     elseif (contains(name,'smooth'))
-        diam     = Diams(4);
-        length   = Lengths(4);
-        area     = pi/4 * diam^2;
-        area_unc = area_unc(4);
+        index = 4;
     elseif (contains(name,'rough'))
-        diam     = Diams(5);
-        length   = Lengths(5);
-        area     = pi/4 * diam^2;
-        area_unc = area_unc(5);
+        index = 5;
     elseif (contains(name,'ping'))
-        diam     = Diams(6);
-        length   = Lengths(6);
-        area     = pi/4 * diam^2;
-        area_unc = area_unc(6);
+        index = 6;
     elseif (contains(name,'golf'))
-        diam     = Diams(7);
-        length   = Lengths(7);
-        area     = pi/4 * diam^2;
-        area_unc = area_unc(7);
+        index = 7;
     elseif (contains(name,'solid'))
-        diam     = Diams(8);
-        length   = Lengths(8);
-        area     = pi/4 * diam^2;  % FIX ME - Area is INCORRECT
-        area_unc = area_unc(8);      % FIX ME - Area unc is INCORRECT
+        index = 8;
     elseif (contains(name,'hollow'))
-        diam     = Diams(9);
-        length   = Lengths(9);
-        area     = pi/4 * diam^2;  % FIX ME - Area is INCORRECT
-        area_unc = area_unc(9);      % FIX ME - Area unc is INCORRECT
+        index = 9;
     elseif (contains(name,'putty'))
-        diam     = Diams(10);
-        length   = Lengths(10);
-        area     = pi/4 * diam^2; % FIX ME - Area is INCORRECT
-        area_unc = area_unc(10);     % FIX ME - Area unc is INCORRECT
+        index = 10;
     else
+        index = NaN;
+    end
+
+    if (isnan(index))
         fprintf("\nArea not found\n");
         fprintf("Input was %s",name);
         area     = NaN; 
         area_unc = NaN;
         length   = NaN;
+    else
+        diam     = Diams(index);
+        length   = Lengths(index); 
+        area     = pi/4 * diam^2;
+        area_unc = area_unc(index);
     end
 end
