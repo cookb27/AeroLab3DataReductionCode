@@ -4,7 +4,9 @@ clear; close all; clc;
 dir_address    = pwd; % Finds Current Folder of Repo
 original_files = dir([dir_address,'/*.mat']); % Searches for all files
 
-DataArray = cell(11,size(original_files,1)-1); % Creates Storage Array
+DataArray = cell(12,size(original_files,1)-1); % Creates Storage Array
+
+% Note: Skipping file #1, that's for the Cd vs Re plot
 
 % Extract Calibration Coefficients
 data = load(fullfile(dir_address,original_files(2).name));
@@ -21,14 +23,19 @@ for i = 3:size(original_files,1)
     % Apply Cal Curve to Mean Voltages
     DataArray{2,i-1} = DataArray{2,1}*mean(data.volData)+DataArray{3,1};
     % Apply Cal Curve to Standard Error of Voltages
-    DataArray{3,i-1} = 1.96*DataArray{2,1}*std(data.volData)/size(data.volData,1);
+    DataArray{3,i-1} = 1.96*DataArray{2,1}*std(data.volData)/sqrt(size(data.volData,1));
 end
 clear data dir_address original_files
-% All Data Are in POUNDS now
+% All Data Are in Newtons now
 
 %% Hard Coding Values
-rho = 1.225;
-mu  = 1.81e-5;
+mu        = 1.81e-5;
+inH20ToPa = 249.08; % Pa / inH20
+T0        = 295.9; % K
+P0        = 101422; % Pa
+R         = 287; 
+rho       = P0/(R*T0);
+rho_unc   = 1/R * sqrt((16.9/T0)^2 + (P0*0.278/T0^2)^2);
 
 %% Assemble the Tares In One Array
 TareArray = cell(3,16); % Cell Array for Tares
@@ -55,12 +62,12 @@ AeroTare20       = cell(2,1);
 AeroTare10{1,1}  = DataArray{2,StingRunIndices(1)} - TareArray{2,StingTareIndices(1)};
 AeroTare10{2,1}  = sqrt(DataArray{3,StingRunIndices(1)}.^2 +...
                    DataArray{3,StingTareIndices(1)}.^2);
-AeroTare10{2,1}  = DataArray{2,1}*AeroTare10{2,1};
+% AeroTare10{2,1}  = DataArray{2,1}*AeroTare10{2,1};
 
 AeroTare20{1,1}  = DataArray{2,StingRunIndices(2)} - TareArray{2,StingTareIndices(2)};
 AeroTare20{2,1}  = sqrt(DataArray{3,StingRunIndices(2)}.^2 +...
                    DataArray{3,StingTareIndices(2)}.^2);
-AeroTare20{2,1}  = DataArray{2,1}*AeroTare20{2,1};
+% AeroTare20{2,1}  = DataArray{2,1}*AeroTare20{2,1};
 
 DataArray(:,StingRunIndices)  = [];
 TareArray(:,StingTareIndices) = [];
@@ -74,14 +81,28 @@ for i = 1:size(Names,2)
 
     if (~isempty(strfind(Names{i},'10'))) % 10m/s Run
         AeroTare = AeroTare10;
-        q = 0.5*rho*10^2; % 10 m/s dynamic pressure (FIX ME!)
+        q = 0.24*inH20ToPa; % 10 m/s dynamic pressure
+        v = sqrt(2*q/rho);
         DataArray{6,i+1} = q;
-        DataArray{10,i+1} = rho*10*diam/mu;
+        DataArray{10,i+1} = rho*v*length/mu;
+
+        term1 = sqrt(rho) * q * 0.005/39.97;
+        term2 = 0.5*q*length*rho_unc/sqrt(rho);
+        term3 = sqrt(rho)*length*0.005*inH20ToPa;
+
+        Re_unc = sqrt(2)/mu * sqrt(term1^2 + term2^2 + term3^2);
     elseif (~isempty(strfind(Names{i},'20'))) % 20m/s Run
         AeroTare = AeroTare20;
-        q = 0.5*rho*20^2; % 20 m/s dynamic pressure (FIX ME!)
+        q = 0.95*inH20ToPa; % 20 m/s dynamic pressure 
+        v = sqrt(2*q/rho);
         DataArray{6,i+1} = q;
-        DataArray{10,i+1} = rho*20*diam/mu;
+        DataArray{10,i+1} = rho*v*length/mu;
+
+        term1 = sqrt(rho) * q * 0.005/39.97;
+        term2 = 0.5*q*length*rho_unc/sqrt(rho);
+        term3 = sqrt(rho)*length*0.005*inH20ToPa;
+
+        Re_unc = sqrt(2)/mu * sqrt(term1^2 + term2^2 + term3^2);
     end
 
     DataArray{7,i+1} = area;
@@ -91,7 +112,7 @@ for i = 1:size(Names,2)
     drag = drag - AeroTare{1,1};
 
     DataArray{4,i+1} = drag;
-    DataArray{5,i+1} = DataArray{2,1}*sqrt(d_unc_1^2 + d_unc_2^2);
+    DataArray{5,i+1} = sqrt(d_unc_1^2 + d_unc_2^2);% DataArray{2,i}*sqrt(d_unc_1^2 + d_unc_2^2);
     % DataArray{6,i+1} = d_unc_2;
     % DataArray(7,i+1) = AeroTare(2);
     DataArray{5,i+1} = sqrt(DataArray{5,i+1}^2 + AeroTare{2}^2);
@@ -99,16 +120,21 @@ for i = 1:size(Names,2)
     DataArray{8,i+1} = drag/(q*area);
 
     term1 = DataArray{5,i+1}/(q*area); % TEMP CODE! Drag Uncertainty
-    term2 = (drag*0.0005*1000)/(q^2*area); % TEMP CODE! 5% uncertainty in q
+    term2 = (drag*0.005*inH20ToPa)/(q^2*area); % TEMP CODE! 5% uncertainty in q
     term3 = drag*area_unc/(q*area^2);  % TEMP CODE!
 
     DataArray{9,i+1} = sqrt(term1^2 + term2^2 + term3^2);
 
     DataArray{11,i+1} = diam/length; % Aspect Ratio
+    DataArray{12,i+1} = Re_unc;
+
+    AR_unc = sqrt(((0.005/39.97)/length)^2+((0.005/39.97)*diam/length^2)^2);
+
+    DataArray{13,i+1} = AR_unc;
 end
 
 clear AeroTare d_unc_1 d_unc_2 drag i j StingRunIndices StingTareIndices
-clear term1 term2 term3 length mu rho q area area_unc
+clear term1 term2 term3 length q area area_unc
 
 % Data are stored per row as:
 % 1  Name
@@ -122,6 +148,8 @@ clear term1 term2 term3 length mu rho q area area_unc
 % 9  CD_unc
 % 10 Re
 % 11 t/c
+% 12 Re_unc ! REORDER !
+% 13 AR_unc
 
 %% Plotting 
 % Creating name vector for bar graph
@@ -132,10 +160,11 @@ X = reordercats(X,Names); % Preserves order of cells (doesn't alphabetize)
 
 f1 = figure;
 hold on
-bar(X,cell2mat(DataArray(8,2:15)));
-er = errorbar(X,cell2mat(DataArray(8,2:15)),cell2mat(DataArray(9,2:15)));
+bar(X,cell2mat(DataArray(8,2:15)).*cell2mat(DataArray(7,2:15)));
+er = errorbar(X,cell2mat(DataArray(8,2:15)).*cell2mat(DataArray(7,2:15)),...
+    cell2mat(DataArray(9,2:15)).*cell2mat(DataArray(7,2:15)));
 er.LineStyle = 'none';
-ylabel("C_D")
+ylabel("C_D A")
 grid on
 
 %% 
@@ -152,6 +181,10 @@ plot(CdvsReSphere(:,1),CdvsReSphere(:,2),'-r',...
     'LineWidth',2)
 hold on
 scatter(ax2,cell2mat(DataArray(10,2:15)),cell2mat(DataArray(8,2:15)));
+er1 = errorbar(ax2,cell2mat(DataArray(10,2:15)),cell2mat(DataArray(8,2:15)),...
+    cell2mat(DataArray(9,2:15)),cell2mat(DataArray(9,2:15)),...
+    cell2mat(DataArray(12,2:15)),cell2mat(DataArray(12,2:15)));
+er1.LineStyle = 'none';
 grid on
 xlim([0.1 1e7])
 ylim([0.01 100])
@@ -190,6 +223,13 @@ end
 figure
 hold on
 scatter(cell2mat(DataArray(11,2:15)),cell2mat(DataArray(8,2:15)));
+
+er2 = errorbar(cell2mat(DataArray(11,2:15)),cell2mat(DataArray(8,2:15)),...
+    cell2mat(DataArray(9,2:15)),cell2mat(DataArray(9,2:15)),...
+    cell2mat(DataArray(13,2:15)),cell2mat(DataArray(13,2:15)));
+
+er2.LineStyle = 'none';
+
 xlabel("Aspect Ratio")
 ylabel("C_D")
 grid on
@@ -208,6 +248,31 @@ for i = 1:size(T,1)
     T2(i,1).HorizontalAlignment = LR;
     T2(i,1).VerticalAlignment   = VERT;
 end
+
+AR1Array = DataArray;
+
+for i = 1:size(DataArray,2)
+    if AR1Array{11,i} ~= 1
+        AR1Array(:,i) = num2cell(NaN(13,1));
+    end
+end
+
+idx = find(isnan(cell2mat(AR1Array(2,:))));
+
+AR1Array(:,[1,idx]) = [];
+
+[~,I] = sort(cell2mat(AR1Array(8,:)));
+AR1Array = AR1Array(:,I);
+
+ax2 = axes('Position',[0.6 0.25 0.25 0.25]);
+hold on
+bar(categorical(cellstr(AR1Array(1,:))),cell2mat(AR1Array(8,:)));
+er2 = errorbar(categorical(cellstr(AR1Array(1,:))),cell2mat(AR1Array(8,:)),...
+    cell2mat(AR1Array(9,:)));
+er2.LineStyle = 'none';
+grid on
+title("CD for AR = 1");
+ylabel("C_D");
 
 %% Functions
 % This function will find the find and remove the tare data
@@ -228,27 +293,27 @@ end
 % This function finds the area based on name alone
 function [length, diam, area, area_unc] = AreaFinder(name)
     % Hard coding in lengths (inches, to be converted)
-    Diams   = [2.95  % Diam   Disk
-               3.03  % Diam   Concave
-               3.08  % Diam   Convex
-               2.99  % Diam   Smooth
-               3.03  % Diam   Rough
-               1.58  % Diam   Ping-Pong
-               1.67  % Diam   Golfball
-               3.41  % Diam Solid Nerf
-               3.46  % Diam Hollow Nerf
+    Diams   = [2.95   % Diam   Disk
+               3.03   % Diam   Concave
+               3.08   % Diam   Convex
+               2.99   % Diam   Smooth
+               3.03   % Diam   Rough
+               1.58   % Diam   Ping-Pong
+               1.67   % Diam   Golfball
+               3.41   % Diam Solid Nerf
+               3.46   % Diam Hollow Nerf
                1.38]; % Diam Putty
     
-    Lengths = [2.95  % Diam   Disk
-               3.03  % Diam   Concave
-               3.08  % Diam   Convex
-               2.99  % Diam   Smooth
-               3.03  % Diam   Rough
-               1.58  % Diam   Ping-Pong
-               1.67  % Diam   Golfball
-               11.1  % Length Solid Nerf
-               6.38  % Length Hollow Nerf
-               4.25]; % Length Putty
+    Lengths = [0.38    % Diam   Disk
+               3.03/2  % Diam   Concave
+               3.08/2  % Diam   Convex
+               2.99    % Diam   Smooth
+               3.03    % Diam   Rough
+               1.58    % Diam   Ping-Pong
+               1.67    % Diam   Golfball
+               11.1    % Length Solid Nerf
+               6.38    % Length Hollow Nerf
+               4.25];  % Length Putty
 
     Lengths  = Lengths/39.37;
     Diams    = Diams/39.37;
