@@ -112,7 +112,7 @@ for i = 1:size(Names,2)
     drag = drag - AeroTare{1,1};
 
     DataArray{4,i+1} = drag;
-    DataArray{5,i+1} = sqrt(d_unc_1^2 + d_unc_2^2);% DataArray{2,i}*sqrt(d_unc_1^2 + d_unc_2^2);
+    DataArray{5,i+1} = sqrt(d_unc_1^2 + d_unc_2^2 + AeroTare{2}^2);% DataArray{2,i}*sqrt(d_unc_1^2 + d_unc_2^2);
     % DataArray{6,i+1} = d_unc_2;
     % DataArray(7,i+1) = AeroTare(2);
     DataArray{5,i+1} = sqrt(DataArray{5,i+1}^2 + AeroTare{2}^2);
@@ -160,11 +160,16 @@ X = reordercats(X,Names); % Preserves order of cells (doesn't alphabetize)
 
 f1 = figure;
 hold on
-bar(X,cell2mat(DataArray(8,2:15)).*cell2mat(DataArray(7,2:15)));
-er = errorbar(X,cell2mat(DataArray(8,2:15)).*cell2mat(DataArray(7,2:15)),...
-    cell2mat(DataArray(9,2:15)).*cell2mat(DataArray(7,2:15)));
+% bar(X,cell2mat(DataArray(8,2:15)).*cell2mat(DataArray(7,2:15)));
+% er = errorbar(X,cell2mat(DataArray(8,2:15)).*cell2mat(DataArray(7,2:15)),...
+%     cell2mat(DataArray(9,2:15)).*cell2mat(DataArray(7,2:15)));
+
+bar(X,cell2mat(DataArray(4,2:15)));
+er = errorbar(X,cell2mat(DataArray(4,2:15)),...
+    cell2mat(DataArray(5,2:15)));
+
 er.LineStyle = 'none';
-ylabel("C_D A")
+ylabel("Drag (N)");
 grid on
 
 %% 
@@ -349,6 +354,12 @@ function [length, diam, area, area_unc] = AreaFinder(name)
         area     = NaN; 
         area_unc = NaN;
         length   = NaN;
+    elseif index == 10
+        diam     = Diams(index);
+        length   = Lengths(index); 
+        area     = 0.25*diam^2;
+        % area_unc = 0.5*diam;     
+        area_unc = 0;
     else
         diam     = Diams(index);
         length   = Lengths(index); 
