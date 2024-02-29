@@ -131,6 +131,7 @@ for i = 1:size(Names,2)
     AR_unc = sqrt(((0.005/39.97)/length)^2+((0.005/39.97)*diam/length^2)^2);
 
     DataArray{13,i+1} = AR_unc;
+    DataArray{14,i+1} = area_unc;
 end
 
 clear AeroTare d_unc_1 d_unc_2 drag i j StingRunIndices StingTareIndices
@@ -150,6 +151,7 @@ clear term1 term2 term3 length q area area_unc
 % 11 t/c
 % 12 Re_unc ! REORDER !
 % 13 AR_unc
+% 14 A_unc
 
 %% Plotting 
 % Creating name vector for bar graph
